@@ -12,10 +12,13 @@
 <script>if (window.gsap && window.ScrollTrigger) { window.gsap.registerPlugin(window.ScrollTrigger); }</script>
 </head>
 <body>
+<div class="scaffold" aria-hidden="true"></div>
+<div class="scroll-progress" aria-hidden="true"></div>
+<div id="cursor-pill" aria-hidden="true"><span id="cursor-pill-label">DRAG</span></div>
 <header class="topbar"><div class="wrap">
   <div class="brand">May Song Land<small>Real estate · Fictional demo</small></div>
   <nav class="nav" aria-label="Main">
-    <a href="#listings">Listings</a><a href="#journey">Buying journey</a><a href="#amenities">Amenities</a><a href="#visit">Book a viewing</a>
+    <a class="roll" href="#listings"><span>Listings</span><span aria-hidden="true">Listings</span></a><a class="roll" href="#journey"><span>Buying journey</span><span aria-hidden="true">Buying journey</span></a><a class="roll" href="#amenities"><span>Amenities</span><span aria-hidden="true">Amenities</span></a><a class="roll" href="#visit"><span>Book a viewing</span><span aria-hidden="true">Book a viewing</span></a>
   </nav>
   <a class="btn small" href="#visit">Book a viewing</a>
 </div></header>
@@ -26,7 +29,7 @@
     <div>
       <p class="eyebrow">Fictional project · Sales phase 1 · Transparent paperwork</p>
       <h1>Climb one floor at a time, <em>to your home.</em></h1>
-      <p class="lead">No need to read fifty listings. Choose a floor, choose a direction, see only the units that are still open — then book a viewing.</p>
+      <p class="lead word-reveal">No need to read fifty listings. Choose a floor, choose a direction, see only the units that are still open — then book a viewing.</p>
       <p><strong>May Song Residence (fictional)</strong> · 18 floors · 216 units · Sample unit, Floor 12: 72 m2, 2BR, Southeast, 58 million VND/m2, about 4.18 billion VND · Handover Q4/2027 (fictional) · Title papers per unit.</p>
       <div class="hero-ctas">
         <a class="btn" href="#listings">See open units</a>
@@ -47,9 +50,12 @@
       </div>
       <div class="floor-counter" aria-live="polite"><span>Floor</span><b id="floor-number">12</b><span id="floor-label">Sample unit floor</span></div>
       <div class="loader" id="tower-loader">Loading tower…</div>
-      <p style="padding:0 14px 10px"><small>FIG. 01 — WEBGL TOWER — OPTION B + WEBGL — v1.0 — 2026-10-26 · Drag to rotate · Scroll to highlight floors from bottom to top.</small></p>
+      <p style="padding:0 14px 10px"><small>FIG. 01 — WEBGL TOWER — OPTION B + WEBGL — v1.1 — 2026-10-26 · Drag to rotate · Scroll to highlight floors from bottom to top.</small></p>
     </div>
   </section>
+
+  <div class="ticker" aria-hidden="true"><div class="ticker-track"><span>SONG XANH 42M/M2 ✦ CANG MOI 46M/M2 ✦ DOI THONG 71M/M2 ✦ FLOOR 12 SAMPLE 58M/M2 ✦ 248 UNITS HANDED OVER ✦ 87% OCCUPANCY ✦&nbsp;</span><span>SONG XANH 42M/M2 ✦ CANG MOI 46M/M2 ✦ DOI THONG 71M/M2 ✦ FLOOR 12 SAMPLE 58M/M2 ✦ 248 UNITS HANDED OVER ✦ 87% OCCUPANCY ✦&nbsp;</span></div></div>
+  <div class="kinetic" aria-hidden="true"><span>MAY SONG</span></div>
 
   <div class="stats-strip" id="stats-list" data-reveal></div>
 
@@ -57,6 +63,7 @@
   <section id="filter">
     <p class="eyebrow">Find it in 30 seconds</p>
     <h2>Start with <em>where.</em> Then narrow by budget.</h2>
+    <p class="word-reveal">Choose a district on the map, then narrow by budget and area.</p>
     <p class="demo">Demo notice: the map, filters and counts below run on fictional static data. Nothing you select is saved or sent anywhere.</p>
     <div class="filter-grid">
       <div class="panel">
@@ -103,19 +110,33 @@
   <section id="listings">
     <p class="eyebrow">Listed board — 8 open files</p>
     <h2>Read along the <em>tower rail.</em></h2>
-    <p>Each row is one floor on the tower rail, from the ground up. Land has no floor and is marked as such.</p>
+    <p class="word-reveal">Each row is one floor on the tower rail, from the ground up. Land has no floor and is marked as such.</p>
     <div class="listing-rail"><div id="listing-rows"></div></div>
-    <div class="sheet" id="detail-sheet">
-      <h3 id="sheet-title">Viewing request (demo)</h3>
-      <p>Use the booking form in the burgundy band below to complete a demo request. Nothing here is saved.</p>
-      <button class="btn ghost" id="close-sheet">Close</button>
-    </div>
+  </section>
+
+  <!-- FLOORS AT A GLANCE: horizontal scroll, desktop pinned -->
+  <section id="floors">
+    <p class="eyebrow">Floors at a glance</p>
+    <h2>Slide along <em>the tower.</em></h2>
+    <p class="word-reveal">Scroll sideways through the tower, from the lobby to the top floors.</p>
+    <div class="horiz-viewport" id="horiz-viewport"><div class="horiz-track" id="horiz-track">
+      <article class="floor-card"><b>01</b><h3>Lobby &amp; retail</h3><p>Ground floor · Street frontage</p></article>
+      <article class="floor-card"><b>04</b><h3>Homes</h3><p>Mid-low floors · Family layouts</p></article>
+      <article class="floor-card"><b>08</b><h3>Studio — Thap Sao Mai</h3><p>38 m2 · North · 1.62 bn VND (fictional)</p></article>
+      <article class="floor-card featured"><b>12</b><h3>Sample unit — 2BR</h3><p>68 m2 · Southeast · 2.85 bn VND (fictional)</p></article>
+      <article class="floor-card"><b>16</b><h3>3BR sample</h3><p>96 m2 · 4.90 bn VND (fictional)</p></article>
+      <article class="floor-card"><b>18</b><h3>Top homes</h3><p>Top floors · East light</p></article>
+      <article class="floor-card"><b>—</b><h3>Land plot — An Phu Vien</h3><p>120 m2 · South · 3.90 bn VND (fictional) · No floor</p></article>
+    </div></div>
+    <div class="horiz-progress" aria-hidden="true"><i id="horiz-progress-bar"></i></div>
+    <p><small>On desktop, scroll to slide the strip. On mobile, swipe it sideways. No pin is used on mobile.</small></p>
   </section>
 
   <!-- JOURNEY -->
   <section id="journey">
     <p class="eyebrow">Buying journey · 5 floors</p>
     <h2>Finish one floor <em>before climbing to the next.</em></h2>
+    <p class="word-reveal">Five floors, five decisions — each one finished before you climb.</p>
     <div class="journey">
       <div class="cutaway">
         <p class="eyebrow">Sticky cutaway</p>
@@ -131,6 +152,7 @@
   <section id="amenities">
     <p class="eyebrow">Amenities · Measured from the main lobby</p>
     <h2>Everything you need, <em>without leaving the complex.</em></h2>
+    <p class="word-reveal">Distances are measured from the main lobby, in minutes on foot.</p>
     <div class="amen-grid"><div id="amen-list"></div>
       <div class="panel"><h3>Along the vertical axis</h3>
         <p>Ground: pool, park, kindergarten, supermarket.<br>Floor 2: gym &amp; yoga.<br>Floors 3–18: homes, with the sample unit on Floor 12.</p>
@@ -143,6 +165,7 @@
   <section id="proof">
     <p class="eyebrow">Proof · Fictional illustration</p>
     <h2>Not promises. <em>Paperwork.</em></h2>
+    <p class="word-reveal">Numbers and voices, both labelled as illustration.</p>
     <div class="tower-stats">
       <svg viewBox="0 0 200 420" role="img" aria-label="Tower cutaway for statistics"><g id="stats-cut"></g></svg>
       <div><div class="stats-strip" style="margin:0"><div><b>248</b><p>units handed over (fictional)</p></div><div><b>87%</b><p>occupancy (fictional)</p></div><div><b>27.4 m VND/m2</b><p>lowest listed (fictional)</p></div><div><b>12 days</b><p>average viewing to signing (fictional)</p></div></div>
@@ -153,13 +176,15 @@
   </section>
 </main>
 
+<div class="kinetic" aria-hidden="true"><span>FLOOR 12</span></div>
+
 <!-- VISIT -->
 <div class="band" id="visit">
   <div class="wrap">
     <div>
       <p class="eyebrow" style="color:#e9c58c">Book a viewing — free · No deposit required</p>
       <h2>Visit first, <em>decide after.</em></h2>
-      <p>May Song Land office (fictional): No. 12 Song May Street, Binh Minh Ward (fictional address). Hours: 8:30–17:30, Monday–Saturday. Hotline 0908 222 333 (illustration only). From the fictional Song Han Bridge, 5 minutes east. Coordinates 16.0544, 108.2021 (illustration only).</p>
+      <p class="word-reveal">May Song Land office (fictional): No. 12 Song May Street, Binh Minh Ward (fictional address). Hours: 8:30–17:30, Monday–Saturday. Hotline 0908 222 333 (illustration only). From the fictional Song Han Bridge, 5 minutes east. Coordinates 16.0544, 108.2021 (illustration only).</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <a class="btn light" href="#booking-form">Book a viewing</a>
         <button class="pause-btn" type="button" aria-pressed="false" style="color:#fff;border-color:#fff">⏸ Pause motion</button>
@@ -187,9 +212,22 @@
     <div><strong>Projects (fictional)</strong><p>May Song Residence · Thap Sao Mai · Vuon Trang Hills · Land plot C07</p></div>
     <div><strong>Contact (fictional)</strong><p>No. 12 Song May Street, Binh Minh Ward · 8:30–17:30 Mon–Sat · 0908 222 333 (illustration) · @maysong.demo (illustration)</p></div>
   </div>
-  <span class="version">REAL ESTATE — OPTION B + WEBGL — v1.0 — 2026-10-26</span>
+  <nav class="foot-links" aria-label="Footer">
+    <a class="roll" href="#listings"><span>Listings</span><span aria-hidden="true">Listings</span></a><a class="roll" href="#journey"><span>Buying journey</span><span aria-hidden="true">Buying journey</span></a><a class="roll" href="#amenities"><span>Amenities</span><span aria-hidden="true">Amenities</span></a><a class="roll" href="#visit"><span>Book a viewing</span><span aria-hidden="true">Book a viewing</span></a>
+  </nav>
+  <span class="version">REAL ESTATE — OPTION B + WEBGL — v1.1 — 2026-10-26</span>
   <p class="demo">This is a landing-page illustration, not a real exchange. Brand, projects, prices, addresses and figures are fictional. No data is saved, no payment is taken.</p>
 </div></footer>
+
+<!-- TOP-DROP DETAIL SHEET (replaces the old inline sheet + scrollIntoView open) -->
+<div class="sheet-backdrop" id="sheet-backdrop" hidden>
+  <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <h3 id="sheet-title">Viewing request (demo)</h3>
+    <p id="sheet-body">Use the booking form in the burgundy band below to complete a demo request. Nothing here is saved.</p>
+    <button class="btn" id="sheet-continue">Continue to booking form</button>
+    <button class="sheet-close" id="close-sheet" type="button">Close ✕</button>
+  </div>
+</div>
 
 <script>
 // Build the static SVG cutaways (fallback, journey, stats) without extra files.

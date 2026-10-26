@@ -63,3 +63,104 @@ footer{border-top:1px solid var(--line);padding:26px 0 70px}.foot-grid{display:g
 @media(max-width:560px){.nav{display:none}.stats-strip{grid-template-columns:1fr}.foot-grid,.amen-grid{grid-template-columns:1fr}.hero-stage,#tower-canvas,#tower-fallback{min-height:380px;height:380px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 body.paused *{animation-play-state:paused!important}
+
+/* ===== Motion upgrade v1.1 — tokens only: motion-fast 150ms, motion-base 250ms,
+   motion-section 400ms, motion-hero 700ms, ease-out cubic-bezier(.22,1,.36,1),
+   ease-out-strong power4.out, ease-linear for loops. Transform/opacity only. ===== */
+
+/* Exposed scaffold / parallax background (Site C mechanism, diegetic: tower grid) */
+.scaffold{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background-image:repeating-linear-gradient(to right, rgba(25,27,26,.07) 0 1px, transparent 1px 98px);}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scaffold{animation:scaffold-parallax linear both;animation-timeline:scroll(root);animation-range:0% 100%}
+    @keyframes scaffold-parallax{from{transform:translateY(-4%)}to{transform:translateY(4%)}}
+  }
+}
+
+/* Scroll progress bar, driven by scroll only (native-motion scroll() pattern) */
+.scroll-progress{position:fixed;top:0;left:0;right:0;height:4px;background:var(--burg);z-index:50;transform-origin:left;transform:scaleX(0)}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-progress{animation:scroll-progress linear both;animation-timeline:scroll(root);animation-range:0% 100%}
+    @keyframes scroll-progress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  }
+}
+
+/* Marquee ticker (gsap-patterns 1b: pure CSS, duplicated track, linear loop) */
+.ticker{background:var(--burg);color:#fff;overflow:hidden;margin:28px 0 0}
+.ticker-track{display:flex;width:max-content;animation:marquee 35s linear infinite}
+.ticker-track span{white-space:nowrap;padding:10px 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+@keyframes marquee{to{transform:translateX(-50%)}}
+
+/* Kinetic typography divider (gsap-patterns 4: giant word, scrubbed xPercent) */
+.kinetic{overflow:hidden;padding:10px 0;pointer-events:none}
+.kinetic span{display:block;width:max-content;font-size:clamp(80px,14vw,200px);line-height:1;font-weight:800;letter-spacing:-.05em;text-transform:uppercase;color:transparent;-webkit-text-stroke:1px var(--burg);white-space:nowrap}
+.kinetic span[aria-hidden="true"]{user-select:none}
+
+/* Rolling links (Site D: label duplicated, slide exactly one line-height, CSS only) */
+.roll{position:relative;display:inline-block;overflow:hidden;vertical-align:bottom}
+.roll span{display:block;transition:transform 250ms cubic-bezier(.22,1,.36,1)}
+.roll span:last-child{position:absolute;left:0;top:100%}
+.roll:hover span,.roll:focus-visible span{transform:translateY(-100%)}
+.foot-links{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px}
+.foot-links a{color:var(--ink);text-decoration:none;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+
+/* Horizontal floors strip (gsap-patterns pinned reel; mobile = swipe row) */
+.horiz-viewport{overflow:hidden}
+.horiz-track{display:flex;gap:16px;width:max-content;padding:6px 0}
+.floor-card{min-width:280px;border:1px solid var(--line);background:#fff;padding:18px}
+.floor-card b{display:block;font-size:44px;line-height:1;letter-spacing:-.06em;color:var(--burg)}
+.floor-card.featured{background:var(--paper);border-color:var(--burg)}
+.horiz-progress{height:4px;background:var(--line);margin:12px 0}
+.horiz-progress i{display:block;height:100%;width:0;background:var(--burg)}
+body.no-gsap .horiz-viewport{overflow-x:auto}
+
+/* Pinned stacked journey (gsap-patterns card deck, adapted: steps stack) */
+#journey.journey-stacked .cutaway{position:static}
+#journey.journey-stacked #journey-steps{position:relative}
+#journey.journey-stacked .step{position:absolute;top:0;left:0;right:0;background:var(--ivory)}
+
+/* Top-drop detail sheet (Site B: sheet from top, blurred backdrop, close on lower edge) */
+.sheet-backdrop{position:fixed;inset:0;z-index:60;background:rgba(25,27,26,.45);backdrop-filter:blur(6px)}
+.sheet-backdrop[hidden]{display:none}
+.sheet-panel{position:absolute;top:0;left:0;right:0;background:#fff;padding:28px 20px 34px;transform:translateY(-100%);transition:transform 400ms cubic-bezier(.22,1,.36,1)}
+.sheet-backdrop.open .sheet-panel{transform:translateY(0)}
+.sheet-close{position:absolute;left:50%;bottom:-18px;transform:translateX(-50%);background:var(--burg);color:#fff;border:1px solid var(--burg);padding:8px 16px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+
+/* Cursor pill (Site B: verb pill following the pointer, never blocks clicks) */
+#cursor-pill{position:fixed;left:0;top:0;z-index:70;pointer-events:none;background:var(--ink);color:#fff;border:1px solid var(--burg);padding:4px 10px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:0;transition:opacity 150ms cubic-bezier(.22,1,.36,1);will-change:transform}
+#cursor-pill.on{opacity:1}
+
+/* Micro-interactions (micro-interactions.md: press 150ms, hover 250ms, accordion grid rows) */
+.btn{transition:transform 150ms cubic-bezier(.22,1,.36,1)}
+.chip,.dial button{transition:transform 150ms cubic-bezier(.22,1,.36,1),background-color 250ms cubic-bezier(.22,1,.36,1)}
+.chip:active,.dial button:active{transform:scale(.97)}
+.unit-accordion{border:1px solid rgba(255,255,255,.5);margin:6px 0}
+.unit-accordion .unit-card{border:none;margin:0}
+.unit-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows 250ms cubic-bezier(.22,1,.36,1)}
+.unit-body>div{overflow:hidden}
+.unit-accordion.open .unit-body{grid-template-rows:1fr}
+.unit-body p{margin:0;padding:0 10px 10px;color:#fff;font-size:12px}
+
+/* Masked headings + word reveal (gsap-patterns 1, Site D) */
+.mask-line{display:block;overflow:hidden;padding-bottom:.14em;margin-bottom:-.14em}
+.mask-inner{display:block}
+.word-reveal .w{display:inline-block}
+
+@media(max-width:900px){
+  .horiz-viewport{overflow-x:auto;scroll-snap-type:x proximity}
+  .horiz-track .floor-card{scroll-snap-align:start}
+  #cursor-pill{display:none}
+}
+@media(pointer:coarse){#cursor-pill{display:none}}
+@media(prefers-reduced-motion:reduce){
+  .ticker-track{animation:none}
+  .scaffold{animation:none}
+  .scroll-progress{animation:none;transform:scaleX(1)}
+  .kinetic span{transform:none!important}
+  .horiz-viewport{overflow-x:auto}
+  #cursor-pill{display:none}
+  .sheet-panel{transition-duration:.01ms}
+}
+body.paused .ticker-track{animation-play-state:paused}
