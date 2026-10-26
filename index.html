@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>May Song Residence — Real Estate Landing (Demo)</title>
+<meta name="description" content="Fictional real-estate landing page for May Song Residence. Demo only: no data is saved and no real transaction takes place.">
+<link rel="stylesheet" href="styles.css">
+<!-- Tower is raw WebGL (tower.js) with no CDN dependency; only GSAP is CDN-loaded and guarded. -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>if (window.gsap && window.ScrollTrigger) { window.gsap.registerPlugin(window.ScrollTrigger); }</script>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">May Song Land<small>Real estate · Fictional demo</small></div>
+  <nav class="nav" aria-label="Main">
+    <a href="#listings">Listings</a><a href="#journey">Buying journey</a><a href="#amenities">Amenities</a><a href="#visit">Book a viewing</a>
+  </nav>
+  <a class="btn small" href="#visit">Book a viewing</a>
+</div></header>
+
+<main class="wrap">
+  <!-- HERO -->
+  <section id="hero" class="hero" style="border-top:none">
+    <div>
+      <p class="eyebrow">Fictional project · Sales phase 1 · Transparent paperwork</p>
+      <h1>Climb one floor at a time, <em>to your home.</em></h1>
+      <p class="lead">No need to read fifty listings. Choose a floor, choose a direction, see only the units that are still open — then book a viewing.</p>
+      <p><strong>May Song Residence (fictional)</strong> · 18 floors · 216 units · Sample unit, Floor 12: 72 m2, 2BR, Southeast, 58 million VND/m2, about 4.18 billion VND · Handover Q4/2027 (fictional) · Title papers per unit.</p>
+      <div class="hero-ctas">
+        <a class="btn" href="#listings">See open units</a>
+        <a class="btn ghost" href="#visit">Book a viewing (demo)</a>
+        <button class="pause-btn" type="button" aria-pressed="false">⏸ Pause motion</button>
+      </div>
+      <p class="demo">Demo notice: May Song Land, May Song Residence, all prices, addresses and figures on this page are fictional illustration. This form and these listings do not save data and do not create a real transaction.</p>
+    </div>
+    <div class="hero-stage" data-reveal>
+      <canvas id="tower-canvas" aria-label="Interactive 3D tower — drag to rotate"></canvas>
+      <div id="tower-fallback" hidden>
+        <svg viewBox="0 0 200 620" role="img" aria-label="Static building cutaway, 18 floors, floor 12 highlighted">
+          <rect x="60" y="10" width="80" height="14" fill="#9a7652"/><text x="100" y="42" text-anchor="middle" font-size="10">ROOF</text>
+          <g id="fallback-floors"></g>
+          <rect x="50" y="580" width="100" height="26" fill="#484642"/><text x="100" y="597" text-anchor="middle" font-size="10" fill="#fff">LOBBY</text>
+        </svg>
+        <p>Static cutaway. WebGL is unavailable, so the 3D tower is replaced by this drawing — the same 18 floors, with Floor 12 highlighted in burgundy.</p>
+      </div>
+      <div class="floor-counter" aria-live="polite"><span>Floor</span><b id="floor-number">12</b><span id="floor-label">Sample unit floor</span></div>
+      <div class="loader" id="tower-loader">Loading tower…</div>
+      <p style="padding:0 14px 10px"><small>FIG. 01 — WEBGL TOWER — OPTION B + WEBGL — v1.0 — 2026-10-26 · Drag to rotate · Scroll to highlight floors from bottom to top.</small></p>
+    </div>
+  </section>
+
+  <div class="stats-strip" id="stats-list" data-reveal></div>
+
+  <!-- FILTER -->
+  <section id="filter">
+    <p class="eyebrow">Find it in 30 seconds</p>
+    <h2>Start with <em>where.</em> Then narrow by budget.</h2>
+    <p class="demo">Demo notice: the map, filters and counts below run on fictional static data. Nothing you select is saved or sent anywhere.</p>
+    <div class="filter-grid">
+      <div class="panel">
+        <h3>Planning map (illustration)</h3>
+        <svg viewBox="0 0 300 220" role="img" aria-label="Fictional planning map with three districts">
+          <path d="M0 150 Q80 130 150 160 T300 140" fill="none" stroke="#769094" stroke-width="6"/>
+          <rect class="map-zone" data-district="song-xanh" x="10" y="10" width="130" height="110" rx="6"/>
+          <rect class="map-zone" data-district="cang-moi" x="160" y="10" width="130" height="110" rx="6"/>
+          <rect class="map-zone" data-district="doi-thong" x="80" y="140" width="140" height="70" rx="6"/>
+          <text x="75" y="60" text-anchor="middle" pointer-events="none">Song Xanh · 4</text>
+          <text x="225" y="60" text-anchor="middle" pointer-events="none">Cang Moi · 3</text>
+          <text x="150" y="178" text-anchor="middle" pointer-events="none">Doi Thong · 1</text>
+        </svg>
+        <p><small>District boundaries are fictional. Click a district to filter; click All to reset.</small></p>
+        <div data-group="district" class="chips">
+          <button class="chip active" data-value="all">All districts</button>
+          <button class="chip" data-value="song-xanh">Song Xanh</button>
+          <button class="chip" data-value="cang-moi">Cang Moi</button>
+          <button class="chip" data-value="doi-thong">Doi Thong</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div data-group="type"><h3>Type</h3><div class="chips">
+          <button class="chip active" data-value="all">All (8)</button><button class="chip" data-value="apartment">Apartment (4)</button>
+          <button class="chip" data-value="townhouse">Townhouse (1)</button><button class="chip" data-value="land">Land (1)</button>
+          <button class="chip" data-value="villa">Villa (1)</button><button class="chip" data-value="retail">Retail (1)</button>
+        </div></div>
+        <div data-group="budget"><h3>Budget dial</h3><div class="dial">
+          <button class="active" data-value="all">Any</button><button data-value="under-2">Under 2 bn</button>
+          <button data-value="2-5">2–5 bn</button><button data-value="5-10">5–10 bn</button><button data-value="over-10">Over 10 bn</button>
+        </div></div>
+        <div data-group="area"><h3>Area scale</h3><div class="dial">
+          <button class="active" data-value="all">Any</button><button data-value="under-50">Under 50 m2</button>
+          <button data-value="50-100">50–100 m2</button><button data-value="100-200">100–200 m2</button><button data-value="over-200">Over 200 m2</button>
+        </div></div>
+        <p class="result-count" id="result-count">Showing 8 / 8 listings</p>
+        <p id="filter-summary"></p>
+        <button class="btn ghost" data-clear>Clear filters</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- LISTINGS -->
+  <section id="listings">
+    <p class="eyebrow">Listed board — 8 open files</p>
+    <h2>Read along the <em>tower rail.</em></h2>
+    <p>Each row is one floor on the tower rail, from the ground up. Land has no floor and is marked as such.</p>
+    <div class="listing-rail"><div id="listing-rows"></div></div>
+    <div class="sheet" id="detail-sheet">
+      <h3 id="sheet-title">Viewing request (demo)</h3>
+      <p>Use the booking form in the burgundy band below to complete a demo request. Nothing here is saved.</p>
+      <button class="btn ghost" id="close-sheet">Close</button>
+    </div>
+  </section>
+
+  <!-- JOURNEY -->
+  <section id="journey">
+    <p class="eyebrow">Buying journey · 5 floors</p>
+    <h2>Finish one floor <em>before climbing to the next.</em></h2>
+    <div class="journey">
+      <div class="cutaway">
+        <p class="eyebrow">Sticky cutaway</p>
+        <svg id="journey-cut" viewBox="0 0 200 420" role="img" aria-label="Building cutaway for the buying journey"></svg>
+        <p><small>Click a step to highlight its floor. On mobile the cutaway is not sticky.</small></p>
+      </div>
+      <div id="journey-steps"></div>
+    </div>
+    <p class="demo">Illustration only: fees, loan terms and timelines above are fictional and are not a legal or bank commitment.</p>
+  </section>
+
+  <!-- AMENITIES -->
+  <section id="amenities">
+    <p class="eyebrow">Amenities · Measured from the main lobby</p>
+    <h2>Everything you need, <em>without leaving the complex.</em></h2>
+    <div class="amen-grid"><div id="amen-list"></div>
+      <div class="panel"><h3>Along the vertical axis</h3>
+        <p>Ground: pool, park, kindergarten, supermarket.<br>Floor 2: gym &amp; yoga.<br>Floors 3–18: homes, with the sample unit on Floor 12.</p>
+        <p>Gallery (illustration, no real project photos): daytime facade, welcome lobby, 2BR sample unit 68 m2, kitchen + Southeast balcony, ground-floor pool, inner park in the afternoon.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROOF -->
+  <section id="proof">
+    <p class="eyebrow">Proof · Fictional illustration</p>
+    <h2>Not promises. <em>Paperwork.</em></h2>
+    <div class="tower-stats">
+      <svg viewBox="0 0 200 420" role="img" aria-label="Tower cutaway for statistics"><g id="stats-cut"></g></svg>
+      <div><div class="stats-strip" style="margin:0"><div><b>248</b><p>units handed over (fictional)</p></div><div><b>87%</b><p>occupancy (fictional)</p></div><div><b>27.4 m VND/m2</b><p>lowest listed (fictional)</p></div><div><b>12 days</b><p>average viewing to signing (fictional)</p></div></div>
+      <p class="demo">Statistics are fictional illustration, updated 10/2026 (fictional). They are not business results.</p></div>
+    </div>
+    <div class="testis" id="testi-list"></div>
+    <p class="demo">All testimonials above are fictional illustration. May Song Land is a fictional brand.</p>
+  </section>
+</main>
+
+<!-- VISIT -->
+<div class="band" id="visit">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow" style="color:#e9c58c">Book a viewing — free · No deposit required</p>
+      <h2>Visit first, <em>decide after.</em></h2>
+      <p>May Song Land office (fictional): No. 12 Song May Street, Binh Minh Ward (fictional address). Hours: 8:30–17:30, Monday–Saturday. Hotline 0908 222 333 (illustration only). From the fictional Song Han Bridge, 5 minutes east. Coordinates 16.0544, 108.2021 (illustration only).</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a class="btn light" href="#booking-form">Book a viewing</a>
+        <button class="pause-btn" type="button" aria-pressed="false" style="color:#fff;border-color:#fff">⏸ Pause motion</button>
+      </div>
+    </div>
+    <form id="booking-form">
+      <p class="demo" style="color:#fff">Demo form — before you submit: nothing is saved, no one will call you from this form.</p>
+      <label for="bk-name">Full name *</label><input id="bk-name" required>
+      <label for="bk-phone">Phone *</label><input id="bk-phone" required>
+      <label>Choose a sample unit</label><div id="unit-cards"></div>
+      <label for="bk-date">Viewing date</label><input id="bk-date" type="date">
+      <label for="bk-time">Time slot</label><select id="bk-time"><option>9:00</option><option>10:30</option><option>14:00</option><option>15:30</option></select>
+      <label for="bk-note">What matters most when you view a home?</label><textarea id="bk-note" rows="3"></textarea>
+      <p style="margin-top:14px"><button class="btn light" type="submit">Send demo request</button> <button class="btn ghost" style="color:#fff;border-color:#fff" type="reset">Reset</button></p>
+      <p id="booking-notice" hidden style="background:#fff;color:#6d2d37;padding:12px"></p>
+    </form>
+  </div>
+</div>
+
+<div class="booking-bar" id="booking-bar"><span>Viewing date · Sample unit · <strong>Book a viewing (demo)</strong></span><button class="btn small" id="bar-book">Book</button></div>
+
+<footer><div class="wrap">
+  <div class="foot-grid">
+    <div><strong>May Song Land (fictional)</strong><p>May Song Residence — the fictional developer and project for this demo.</p></div>
+    <div><strong>Projects (fictional)</strong><p>May Song Residence · Thap Sao Mai · Vuon Trang Hills · Land plot C07</p></div>
+    <div><strong>Contact (fictional)</strong><p>No. 12 Song May Street, Binh Minh Ward · 8:30–17:30 Mon–Sat · 0908 222 333 (illustration) · @maysong.demo (illustration)</p></div>
+  </div>
+  <span class="version">REAL ESTATE — OPTION B + WEBGL — v1.0 — 2026-10-26</span>
+  <p class="demo">This is a landing-page illustration, not a real exchange. Brand, projects, prices, addresses and figures are fictional. No data is saved, no payment is taken.</p>
+</div></footer>
+
+<script>
+// Build the static SVG cutaways (fallback, journey, stats) without extra files.
+(function(){
+  function floors(el, hi){
+    if(!el) return;
+    let s = '<rect x="60" y="8" width="80" height="12" fill="#9a7652"/>';
+    for(let f=18; f>=1; f--){
+      const y = 26 + (18-f)*22;
+      s += `<rect data-floor="${f}" x="60" y="${y}" width="80" height="16" fill="${f===hi?'#6d2d37':'#e8e1d5'}" stroke="#191b1a" stroke-width="0.6"/><text x="146" y="${y+12}" font-size="9">${f}</text>`;
+    }
+    s += '<rect x="50" y="422" width="100" height="0" fill="none"/>';
+    el.innerHTML = s;
+  }
+  // Fallback tower uses its own compact stack.
+  const fb = document.getElementById('fallback-floors');
+  if(fb){
+    let s='';
+    for(let f=18; f>=1; f--){
+      const y = 48 + (18-f)*28;
+      s += `<rect x="60" y="${y}" width="80" height="20" fill="${f===12?'#6d2d37':'#e8e1d5'}" stroke="#191b1a" stroke-width="0.6"/><text x="146" y="${y+14}" font-size="10">${f}</text>`;
+    }
+    fb.innerHTML = s;
+  }
+  floors(document.getElementById('journey-cut'), 1);
+  floors(document.getElementById('stats-cut'), 12);
+})();
+</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
