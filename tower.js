@@ -1,18 +1,17 @@
-// Raw WebGL hero tower for May Song Residence — no external dependency.
-// The tower is drawn with real WebGL (not CSS): 18 stacked floor slabs,
-// a glass band per floor, a burgundy-highlighted sample floor, a bronze
-// roof and a stone lobby. One render loop is owned by app.js (tick).
+// Raw WebGL hero tower for May Song Residence — no external dependency (v2).
+// v2 upgrades over v1: per-pixel Lambert lighting with a warm key light and a
+// cool fill, a rim term for the glass bands, distance fog into the paper sky,
+// corner piers + podium + parapet + crown for an architectural silhouette, a
+// soft ground shadow, a self-framing camera that always fits the whole tower,
+// delta-time rotation, and a scroll-driven camera "ride" that glides the view
+// up the building as floors highlight.
 // If WebGL is unavailable or the context is lost, the caller shows the
 // SVG fallback instead — never a blank hero.
 
 const FLOORS = 18;
-const HIGHLIGHT = 12;
 
 function hexRgb(hex) {
   return [((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255];
-}
-function shade(rgb, f) {
-  return rgb.map((v) => Math.min(1, v * f));
 }
 
 // Column-major 4x4 helpers (the layout WebGL expects).
@@ -51,21 +50,54 @@ function rotY(a) {
   const c = Math.cos(a), s = Math.sin(a);
   return new Float32Array([c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1]);
 }
-function rotX(a) {
-  const c = Math.cos(a), s = Math.sin(a);
-  return new Float32Array([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1]);
-}
 
-const FACE_SHADE = [1, 0.85, 0.72, 0.72, 1.12, 0.55]; // front, back, right, left, top, bottom
+// Albedo palette — distinct from the stage sky so the mass always reads.
+const SLAB = hexRgb(0xe7dfcf);   // floor slabs (warm ivory)
+const GLASS = hexRgb(0x6f8a8e);  // window bands (deep teal glass)
+const PIER = hexRgb(0xc9b795);   // corner piers (limestone)
+const BURG = hexRgb(0x6d2d37);   // highlight slab
+const BRONZE = hexRgb(0x9a7652); // highlight band + roof
+const PODIUM = hexRgb(0x55524b); // lobby base
+const DARK = hexRgb(0x2e2c28);   // entrance, mast
+const PAD = hexRgb(0xcfc0a2);    // ground pad
+const SHADOW = hexRgb(0xb7a685); // soft shadow ellipse
+
+const FLOOR_H = 0.62;
+const PODIUM_TOP = 0.85;
+const TOP_Y = PODIUM_TOP + FLOORS * FLOOR_H + 0.9; // roof crown tip ≈ 13.0
 
 export function initTower(canvas, fallbackEl, onFloorChange) {
   const gl = canvas.getContext("webgl", { alpha: true, antialias: true }) || canvas.getContext("experimental-webgl", { alpha: true });
   if (!gl) throw new Error("WebGL unavailable");
 
-  const vs = `attribute vec3 aPos; attribute vec3 aColor; uniform mat4 uMVP; varying vec3 vColor;
-    void main(){ vColor = aColor; gl_Position = uMVP * vec4(aPos, 1.0); }`;
-  const fs = `precision mediump float; varying vec3 vColor;
-    void main(){ gl_FragColor = vec4(vColor, 1.0); }`;
+  const vs = `attribute vec3 aPos; attribute vec3 aNormal; attribute vec3 aColor;
+    uniform mat4 uMVP; uniform mat4 uModel;
+    varying vec3 vNormal; varying vec3 vColor; varying vec3 vWorld;
+    void main(){
+      mat3 nm = mat3(uModel[0].xyz, uModel[1].xyz, uModel[2].xyz);
+      vNormal = nm * aNormal;
+      vColor = aColor;
+      vWorld = (uModel * vec4(aPos, 1.0)).xyz;
+      gl_Position = uMVP * vec4(aPos, 1.0);
+    }`;
+  const fs = `precision mediump float;
+    varying vec3 vNormal; varying vec3 vColor; varying vec3 vWorld;
+    uniform vec3 uEye;
+    void main(){
+      vec3 N = normalize(vNormal);
+      vec3 V = normalize(uEye - vWorld);
+      if (dot(N, V) < 0.0) N = -N;
+      vec3 SUN = normalize(vec3(0.42, 0.80, 0.44));
+      vec3 FILL = normalize(vec3(-0.55, 0.10, -0.62));
+      float diff = max(dot(N, SUN), 0.0);
+      float fill = max(dot(N, FILL), 0.0);
+      float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+      float fog = smoothstep(16.0, 36.0, length(uEye - vWorld));
+      vec3 col = vColor * (0.50 + 0.55 * diff) + vec3(0.09) * fill
+               + vec3(1.0, 0.86, 0.62) * rim * 0.16;
+      vec3 sky = vec3(0.88, 0.84, 0.75);
+      gl_FragColor = vec4(mix(col, sky, fog * 0.55), 1.0);
+    }`;
   function compile(type, src) {
     const sh = gl.createShader(type);
     gl.shaderSource(sh, src); gl.compileShader(sh);
@@ -79,51 +111,85 @@ export function initTower(canvas, fallbackEl, onFloorChange) {
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
   gl.useProgram(prog);
   const posLoc = gl.getAttribLocation(prog, "aPos");
+  const nrmLoc = gl.getAttribLocation(prog, "aNormal");
   const colLoc = gl.getAttribLocation(prog, "aColor");
   const mvpLoc = gl.getUniformLocation(prog, "uMVP");
+  const modelLoc = gl.getUniformLocation(prog, "uModel");
+  const eyeLoc = gl.getUniformLocation(prog, "uEye");
   gl.enable(gl.DEPTH_TEST);
 
-  // Geometry: boxes with per-face shading. Vertices are grouped by face
-  // (6 vertices per face, 6 faces per box) so highlighting a floor can
-  // rewrite exactly that floor's colours.
+  // Geometry: boxes grouped by face (6 verts/face) so highlight repaints only
+  // touch one floor's colours. Normals per face feed the lighting model.
   const positions = [];
+  const normals = [];
   const colors = [];
-  const floorRanges = {}; // floor -> { slab: [start, count], band: [start, count] }
   function pushBox(cx, cy, cz, w, h, d, base) {
     const x0 = cx - w / 2, x1 = cx + w / 2, y0 = cy - h / 2, y1 = cy + h / 2, z0 = cz - d / 2, z1 = cz + d / 2;
     const faces = [
-      [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y0, z1], [x1, y1, z1], [x0, y1, z1]], // front
-      [[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y0, z0], [x0, y1, z0], [x1, y1, z0]], // back
-      [[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y0, z1], [x1, y1, z0], [x1, y1, z1]], // right
-      [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y0, z0], [x0, y1, z1], [x0, y1, z0]], // left
-      [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z1], [x1, y1, z0], [x0, y1, z0]], // top
-      [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z0], [x1, y0, z1], [x0, y0, z1]], // bottom
+      { n: [0, 0, 1], q: [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]] },
+      { n: [0, 0, -1], q: [[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]] },
+      { n: [1, 0, 0], q: [[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]] },
+      { n: [-1, 0, 0], q: [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]] },
+      { n: [0, 1, 0], q: [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]] },
+      { n: [0, -1, 0], q: [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]] },
     ];
     const start = positions.length / 3;
-    faces.forEach((face, fi) => {
-      const col = shade(base, FACE_SHADE[fi]);
-      face.forEach((v) => { positions.push(...v); colors.push(...col); });
+    faces.forEach((f) => {
+      [0, 1, 2, 0, 2, 3].forEach((i) => {
+        positions.push(...f.q[i]); normals.push(...f.n); colors.push(...base);
+      });
     });
     return [start, 36];
   }
-  const IVORY = hexRgb(0xe8e1d5), GLASS = hexRgb(0x769094), BURG = hexRgb(0x6d2d37),
-    BRONZE = hexRgb(0x9a7652), STONE = hexRgb(0x484642), PAPER = hexRgb(0xf4efe7);
+  function pushEllipse(cx, cy, cz, rx, rz, base, seg = 28) {
+    const start = positions.length / 3;
+    for (let i = 0; i < seg; i++) {
+      const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
+      positions.push(cx, cy, cz, cx + Math.cos(a0) * rx, cy, cz + Math.sin(a0) * rz, cx + Math.cos(a1) * rx, cy, cz + Math.sin(a1) * rz);
+      for (let k = 0; k < 3; k++) { normals.push(0, 1, 0); colors.push(...base); }
+    }
+    return [start, seg * 3];
+  }
+
+  const floorRanges = {}; // floor -> { slab, band }
   for (let i = 1; i <= FLOORS; i++) {
-    const y = 0.6 + i * 0.62;
-    const isHi = i === HIGHLIGHT;
-    const slab = pushBox(0, y, 0, 4, 0.52, 4, isHi ? BURG : IVORY);
-    const band = pushBox(0, y + 0.18, 0, 4.14, 0.22, 4.14, isHi ? BRONZE : GLASS);
+    const y = PODIUM_TOP + i * FLOOR_H;
+    const isHi = i === 12;
+    const slab = pushBox(0, y, 0, 4.3, 0.30, 4.3, isHi ? BURG : SLAB);
+    const band = pushBox(0, y + 0.26, 0, 4.02, 0.30, 4.02, isHi ? BRONZE : GLASS);
+    // Corner piers run the full height, stacked per floor.
+    pushBox(-2.0, y + 0.13, -2.0, 0.36, FLOOR_H, 0.36, PIER);
+    pushBox(2.0, y + 0.13, -2.0, 0.36, FLOOR_H, 0.36, PIER);
+    pushBox(-2.0, y + 0.13, 2.0, 0.36, FLOOR_H, 0.36, PIER);
+    pushBox(2.0, y + 0.13, 2.0, 0.36, FLOOR_H, 0.36, PIER);
     floorRanges[i] = { slab, band };
   }
-  pushBox(0, 0.3, 0, 4.6, 0.6, 4.6, STONE); // lobby
-  pushBox(0, 0.6 + FLOORS * 0.62 + 0.42, 0, 4.3, 0.28, 4.3, BRONZE); // roof
-  pushBox(0, -0.06, 0, 9, 0.12, 9, PAPER); // ground
+  // Podium, canopy, entrance.
+  pushBox(0, PODIUM_TOP / 2, 0, 5.3, PODIUM_TOP, 5.3, PODIUM);
+  pushBox(0, PODIUM_TOP + 0.12, 0, 5.9, 0.14, 5.9, BRONZE);
+  pushBox(0, 0.55, 2.7, 1.3, 1.1, 0.12, DARK);
+  // Roof: parapet ring, crown, mast.
+  const roofY = PODIUM_TOP + FLOORS * FLOOR_H + 0.15;
+  pushBox(-2.05, roofY + 0.16, 0, 0.4, 0.32, 4.5, BRONZE);
+  pushBox(2.05, roofY + 0.16, 0, 0.4, 0.32, 4.5, BRONZE);
+  pushBox(0, roofY + 0.16, -2.05, 4.5, 0.32, 0.4, BRONZE);
+  pushBox(0, roofY + 0.16, 2.05, 4.5, 0.32, 0.4, BRONZE);
+  pushBox(0, roofY + 0.55, 0, 2.1, 0.5, 2.1, PIER);
+  pushBox(0, roofY + 1.15, 0, 0.08, 0.75, 0.08, DARK);
+  // Ground pad + soft shadow.
+  pushBox(0, 0.06, 0, 24, 0.12, 24, PAD);
+  pushEllipse(0, 0.13, 0, 3.9, 3.9, SHADOW);
 
   const posBuf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(posLoc);
   gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+  const nrmBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, nrmBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(nrmLoc);
+  gl.vertexAttribPointer(nrmLoc, 3, gl.FLOAT, false, 0, 0);
   const colBuf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.DYNAMIC_DRAW);
@@ -134,28 +200,37 @@ export function initTower(canvas, fallbackEl, onFloorChange) {
   function paintRange(range, base) {
     const [start, count] = range;
     for (let vi = 0; vi < count; vi++) {
-      const face = Math.floor(vi / 6) % 6;
-      const col = shade(base, FACE_SHADE[face]);
       const idx = (start + vi) * 3;
-      colors[idx] = col[0]; colors[idx + 1] = col[1]; colors[idx + 2] = col[2];
+      colors[idx] = base[0]; colors[idx + 1] = base[1]; colors[idx + 2] = base[2];
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
     gl.bufferSubData(gl.ARRAY_BUFFER, start * 12, new Float32Array(colors.slice(start * 3, (start + count) * 3)));
   }
 
-  let targetRot = 0.45, currentRot = 0.45, tilt = 0, targetTilt = 0;
-  let dragging = false, lastX = 0, highlighted = HIGHLIGHT;
+  // Camera: yaw (drag + slow auto-rotate), pointer tilt as a small height
+  // shift, and a scroll "ride" that lifts the view as floors highlight.
+  let targetYaw = 0.55, currentYaw = 0.55, tilt = 0, targetTilt = 0;
+  let targetRide = 11 / 17, currentRide = 11 / 17; // starts on the sample floor 12
+  let dragging = false, lastX = 0, highlighted = 12;
   let paused = false, reduced = false, disposed = false;
+  let fitRadius = 17.6, lastTime = 0;
 
   function setHighlight(floor) {
     const f = Math.max(1, Math.min(FLOORS, Math.round(floor)));
     if (f === highlighted) return;
     const old = floorRanges[highlighted];
-    paintRange(old.slab, IVORY); paintRange(old.band, GLASS);
+    paintRange(old.slab, SLAB); paintRange(old.band, GLASS);
     highlighted = f;
     const cur = floorRanges[f];
     paintRange(cur.slab, BURG); paintRange(cur.band, BRONZE);
     if (onFloorChange) onFloorChange(f);
+  }
+
+  // Scroll ride 0..1: highlights floor round(p*17)+1 and glides the camera up.
+  function setRide(p) {
+    const c = Math.max(0, Math.min(1, p));
+    targetRide = c;
+    setHighlight(Math.round(c * (FLOORS - 1)) + 1);
   }
 
   function resize() {
@@ -164,6 +239,10 @@ export function initTower(canvas, fallbackEl, onFloorChange) {
     const h = Math.max(1, Math.round((canvas.clientHeight || 620) * dpr));
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     gl.viewport(0, 0, w, h);
+    // Self-framing: far enough that the whole tower fits height and width.
+    const halfFov = Math.tan(25 * Math.PI / 180); // vertical fov 50°
+    const aspect = w / Math.max(h, 1);
+    fitRadius = Math.max((TOP_Y / 2 + 1.4) / halfFov, 3.4 / (halfFov * aspect));
   }
   resize();
 
@@ -171,36 +250,49 @@ export function initTower(canvas, fallbackEl, onFloorChange) {
   canvas.addEventListener("pointerup", () => { dragging = false; });
   canvas.addEventListener("pointercancel", () => { dragging = false; });
   canvas.addEventListener("pointermove", (e) => {
-    if (dragging && !reduced && !paused) { targetRot += (e.clientX - lastX) * 0.008; lastX = e.clientX; }
+    if (dragging && !reduced && !paused) { targetYaw += (e.clientX - lastX) * 0.006; lastX = e.clientX; }
     const r = canvas.getBoundingClientRect();
-    targetTilt = ((e.clientY - r.top) / Math.max(r.height, 1) - 0.5) * 0.12;
+    targetTilt = ((e.clientY - r.top) / Math.max(r.height, 1) - 0.5) * 0.28;
   });
   canvas.addEventListener("webglcontextlost", (e) => {
     e.preventDefault();
-    if (fallbackEl) fallbackEl.hidden = false;
-    canvas.hidden = true;
+    if (typeof window !== "undefined") window.__ctxLost = true;
+    if (fallbackEl) {
+      fallbackEl.hidden = false;
+      const msg = fallbackEl.querySelector("p");
+      if (msg) msg.textContent = "Static cutaway — the 3D context was lost, so the tower is replaced by this drawing.";
+    }
+    canvas.style.display = "none";
   });
 
   function tick() {
     if (disposed) return;
+    const now = performance.now();
+    const dt = lastTime ? Math.min((now - lastTime) / 1000, 1 / 30) : 1 / 60;
+    lastTime = now;
     if (reduced) {
-      currentRot = 0.45; tilt = 0;
+      currentYaw = 0.55; tilt = 0; currentRide = targetRide;
     } else if (!paused) {
-      if (!dragging) targetRot += 0.0009;
-      currentRot += (targetRot - currentRot) * 0.08;
+      if (!dragging) targetYaw += 0.22 * dt; // one revolution ≈ 28s — visible but calm
+      currentYaw += (targetYaw - currentYaw) * 0.08;
       tilt += (targetTilt - tilt) * 0.06;
+      currentRide += (targetRide - currentRide) * 0.06;
     }
-    if (typeof window !== "undefined") window.__towerRot = currentRot;
+    if (typeof window !== "undefined") window.__towerRot = currentYaw;
     const aspect = canvas.width / Math.max(canvas.height, 1);
-    const proj = perspective(38 * Math.PI / 180, aspect, 0.1, 100);
-    const view = lookAt([7.5, 7, 11], [0, 6, 0], [0, 1, 0]);
-    const model = multiply(rotY(currentRot), rotX(tilt));
-    // Centre the tower vertically: shift the model down in view space is
-    // approximated by the camera target (0,6,0) above; no extra translation.
+    const proj = perspective(50 * Math.PI / 180, aspect, 0.1, 60);
+    const targetY = 5.4 + currentRide * 2.6 - tilt * 2;
+    const eyeY = 7.6 + currentRide * 2.6 + tilt * 6;
+    const R = fitRadius * (1 - currentRide * 0.08);
+    const eye = [Math.sin(currentYaw) * R, eyeY, Math.cos(currentYaw) * R];
+    const view = lookAt(eye, [0, targetY, 0], [0, 1, 0]);
+    const model = rotY(currentYaw);
     const mvp = multiply(multiply(proj, view), model);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.uniformMatrix4fv(mvpLoc, false, mvp);
+    gl.uniformMatrix4fv(modelLoc, false, model);
+    gl.uniform3fv(eyeLoc, new Float32Array(eye));
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
   }
 
@@ -209,10 +301,13 @@ export function initTower(canvas, fallbackEl, onFloorChange) {
     try { const ext = gl.getExtension("WEBGL_lose_context"); if (ext) ext.loseContext(); } catch (err) {}
   }
 
-  return {
-    tick, resize, dispose, setHighlight,
+  const api = {
+    tick, resize, dispose, setRide, setHighlight,
     setPaused: (v) => { paused = !!v; },
     setReduced: (v) => { reduced = !!v; },
     get highlighted() { return highlighted; },
   };
+  // Debug/verification handle (harmless in production).
+  if (typeof window !== "undefined") window.__towerApi = api;
+  return api;
 }
