@@ -7,9 +7,13 @@ ivory paper, burgundy accent, a vertical tower as the organising idea.
 
 - Hero: a real WebGL tower written in raw WebGL in `tower.js`
   (no Three.js dependency, so it works even when a CDN is blocked):
-  18 floors, burgundy sample floor 12, slow auto-rotation, drag to
-  rotate, mouse tilt, and scroll-scrub that highlights floors from
-  bottom to top and updates the floor counter.
+  18 floors with corner piers, podium, canopy, parapet and crown;
+  per-pixel Lambert lighting (warm key + cool fill + rim) and distance
+  fog into the paper sky; a soft ground shadow; a self-framing camera
+  that always fits the whole tower at any container size; drag to rotate
+  (~28s per revolution, delta-time based), pointer tilt, and a
+  scroll-scrub camera ride that highlights floors from bottom to top,
+  glides the view up the building and updates the floor counter.
 - Filter: a fictional planning map, type chips, a budget dial and an
   area scale. Filters actually filter the listing rows and update the
   live count. An empty result is shown as an empty state, not an error.
@@ -31,10 +35,14 @@ ivory paper, burgundy accent, a vertical tower as the organising idea.
   parallax. All durations/easings use motion tokens only
   (150ms / 250ms / 400ms / 700ms, power3.out / power4.out / linear).
 - Amenities, statistics (fictional) and testimonials (fictional,
-  including one with a minor drawback for credibility).
+  including one with a minor drawback for credibility). The gallery is
+  six hand-drawn SVG line-art figures with real captions.
 - Visit: a burgundy booking band with a one-step demo form and a
   persistent booking bar that never covers the form (extra bottom
   padding is applied while the bar is visible).
+- Typography (v1.2): Fraunces display serif + Manrope body (CDN, with
+  Georgia/system fallback stacks), a fixed paper-grain overlay, and
+  silhouette-style SVG cutaways everywhere (listings, journey, stats).
 
 ## Demo disclaimer
 
@@ -56,18 +64,24 @@ python3 -m http.server 8000
 Then open http://localhost:8000/ . GitHub Pages can serve the same
 folder as-is.
 
-GSAP is loaded from CDN but guarded: if it fails, all content is
-still fully visible (reveals are never CSS-hidden by default). The
-tower itself needs no CDN. If WebGL itself is unavailable, the hero
-shows a static SVG building cutaway with the same 18 floors and the
-highlighted sample floor — never a blank hero. The loader releases
-itself after 5 seconds at the latest.
+GSAP and the two display fonts are loaded from CDN but guarded: if they
+fail, all content is still fully visible (reveals are never CSS-hidden
+by default). The tower itself needs no CDN. If WebGL itself is
+unavailable, the hero shows a static SVG building cutaway with the same
+18 floors and the highlighted sample floor — never a blank hero. The
+loader releases itself after 8 seconds at the latest, and a late tower
+still recovers cleanly if the fallback already fired.
 
 ## Motion guards
 
-- One rAF loop drives the WebGL scene (in `app.js`, calling `tower.js`).
-- Device pixel ratio is capped at 1.75; geometry, materials and the
-  renderer are disposed on unload.
+- One rAF loop drives the WebGL scene (in `app.js`, calling `tower.js`),
+  gated by `document.hidden` and an IntersectionObserver on the hero.
+- If rAF stalls while the tab is visible (heavy load, throttled
+  webview), a self-heal interval adds `body.anim-failsafe`, which forces
+  every reveal to its final state — content beats spectacle. Only
+  elements below the fold are ever hidden for reveals.
+- Device pixel ratio is capped at 1.75; the GL context is disposed on
+  unload via `WEBGL_lose_context`.
 - `webglcontextlost` switches to the SVG fallback.
 - The global Pause button (next to the hero CTA and in the booking
   band) freezes WebGL rotation, GSAP and CSS motion together, including
@@ -91,4 +105,20 @@ itself after 5 seconds at the latest.
 
 ## Version
 
-REAL ESTATE — OPTION B + WEBGL — v1.1 — 2026-10-26
+REAL ESTATE — OPTION B + WEBGL — v1.2 — 2026-10-30
+
+### Changelog v1.2 (visual upgrade pass)
+
+- Tower v2: Lambert + rim lighting, fog, piers/podium/parapet/crown
+  detail, ground shadow, self-framing camera, delta-time rotation,
+  scroll-driven camera ride (was: unlit flat boxes, cropped framing,
+  invisible ivory-on-ivory slabs).
+- Fixed: fallback could appear together with a live 3D tower (5s race +
+  `canvas.hidden` defeated by the stylesheet); now inline-display based
+  with clean recovery.
+- Fixed: reveal system could blank sections when rAF stalled (mask
+  transform + opacity 0 pre-sets); now below-fold-only hiding plus an
+  `anim-failsafe` self-heal class.
+- Added: Fraunces/Manrope typography, paper grain, gallery line-art
+  figures, silhouette cutaways, testimonial avatars, stat count-up,
+  faster legible auto-rotation, `touch-action: pan-y` on the canvas.

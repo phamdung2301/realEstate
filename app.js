@@ -1,4 +1,4 @@
-import { LISTINGS, DISTRICTS, AMENITIES, NEARBY, PROCESS_STEPS, TESTIMONIALS, STATS, SAMPLE_UNITS, priceBucket, areaBucket } from "./data.js";
+import { LISTINGS, DISTRICTS, AMENITIES, NEARBY, PROCESS_STEPS, TESTIMONIALS, STATS, SAMPLE_UNITS, priceBucket, areaBucket } from "./data.js?v=12";
 // NOTE: tower.js is loaded by dynamic import below (not a static import) on
 // purpose: if the tower module fails, this module must still run so the
 // SVG fallback, listings, filters and booking form all still work.
@@ -47,22 +47,34 @@ const fallback = $("#tower-fallback");
 const loader = $("#tower-loader");
 const floorNum = $("#floor-number");
 const floorLabel = $("#floor-label");
-function showFallback() {
-  if (canvas) canvas.hidden = true;
+function showFallback(reason) {
+  // Inline display beats the stylesheet rule on the canvas, so the canvas can
+  // never linger behind the fallback text.
+  if (canvas) canvas.style.display = "none";
   if (fallback) fallback.hidden = false;
-  if (loader) loader.textContent = "Static cutaway — WebGL unavailable";
+  document.body.classList.add("tower-dead");
+  if (loader) loader.textContent = reason === "slow"
+    ? "Static cutaway — 3D tower slow to start"
+    : "Static cutaway — WebGL unavailable";
 }
 function onFloor(f) {
   if (floorNum) floorNum.textContent = String(f).padStart(2, "0");
   if (floorLabel) floorLabel.textContent = f === 12 ? "Sample unit floor" : "Floor " + f;
 }
+// Loader self-release: never hide content, and never wait forever for WebGL.
+let failTimer = setTimeout(() => { if (!towerReady) showFallback("slow"); }, 8000);
 async function startTower() {
   try {
-    const { initTower } = await import("./tower.js");
+    const { initTower } = await import("./tower.js?v=12");
     towerApi = initTower(canvas, fallback, onFloor);
     towerApi.setReduced(reduced);
     towerApi.setPaused(paused);
     towerReady = true;
+    clearTimeout(failTimer);
+    // Recover cleanly if the "slow" fallback already fired while importing.
+    document.body.classList.remove("tower-dead");
+    if (canvas) canvas.style.display = "";
+    if (fallback) fallback.hidden = true;
     if (loader) loader.style.display = "none";
     onFloor(12);
   } catch (e) {
@@ -70,27 +82,35 @@ async function startTower() {
   }
 }
 startTower();
-// Loader self-release: never hide content, and never wait forever for WebGL.
-setTimeout(() => { if (!towerReady) showFallback(); }, 5000);
+
+// Render only while the hero is on screen (stacks with document.hidden).
+let heroOnScreen = true;
+if (canvas && "IntersectionObserver" in window) {
+  new IntersectionObserver((es) => { heroOnScreen = es[0].isIntersecting; }, { rootMargin: "120px" })
+    .observe(canvas);
+}
 
 // Fallback hero scrub (only when GSAP is absent, desktop, not reduced).
-// Corrected denominator: hero height itself, not hero height minus viewport
-// height (the old formula went negative for a normal-height hero).
+// The scrub drives the camera ride: floors highlight while the view glides up.
 if (!window.gsap && desktop && !reduced) {
   window.addEventListener("scroll", () => {
     if (paused) return;
     const hero = $("#hero");
     if (!hero) return;
     const progress = Math.max(0, Math.min(1, (window.scrollY - hero.offsetTop) / Math.max(hero.offsetHeight, 1)));
-    const f = 1 + Math.round(progress * 17);
-    if (towerApi) towerApi.setHighlight(f); else onFloor(f);
+    if (towerApi) towerApi.setRide(progress); else onFloor(1 + Math.round(progress * 17));
   }, { passive: true });
 }
 
 // ---------- Single rAF loop for the WebGL scene + cursor pill ----------
+let lastFrame = performance.now();
 function loop() {
-  if (towerApi && !document.hidden) {
-    try { towerApi.tick(); } catch (e) { showFallback(); towerApi = null; }
+  lastFrame = performance.now();
+  if (towerApi && !document.hidden && heroOnScreen) {
+    try { towerApi.tick(); } catch (e) {
+      if (typeof window !== "undefined") window.__towerError = String((e && e.message) || e);
+      showFallback(); towerApi = null;
+    }
   }
   if (pillOn && !paused && pill) {
     pillX += (pillTX - pillX) * 0.2;
@@ -100,30 +120,34 @@ function loop() {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
+// Self-heal: if rAF stalls while the tab is visible (heavy load, throttled
+// webview), force reveal content instead of leaving sections blank.
+setInterval(() => {
+  if (paused || document.hidden) return;
+  if (performance.now() - lastFrame < 900) return;
+  document.body.classList.add("anim-failsafe");
+}, 1200);
 window.addEventListener("resize", () => { if (towerApi) towerApi.resize(); });
 window.addEventListener("beforeunload", () => { if (towerApi) towerApi.dispose(); });
 
 // ---------- Staggered reveals, re-applied after every filter render ----------
+// Only elements below the fold are hidden: anything already on screen keeps
+// its natural state, so a stalled rAF can never blank the first viewport.
 let batchTriggers = [];
 function setupBatchReveals() {
   if (!window.gsap || !window.ScrollTrigger || reduced) return;
   batchTriggers.forEach((st) => { try { st.kill(); } catch (e) {} });
   batchTriggers = [];
   const els = $$(".row, .amen-row, .testi");
-  if (!els.length) return;
-  window.gsap.set(els, { opacity: 0, y: 24 });
-  batchTriggers = window.ScrollTrigger.batch(els, {
-    start: "top 90%", once: true,
+  const below = els.filter((el) => el.getBoundingClientRect().top > window.innerHeight * 0.92);
+  if (!below.length) return;
+  window.gsap.set(below, { opacity: 0, y: 24 });
+  batchTriggers = window.ScrollTrigger.batch(below, {
+    start: "top 92%", once: true,
     onEnter: (batch) => window.gsap.to(batch, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out", stagger: 0.08, overwrite: true }),
   });
   window.ScrollTrigger.refresh();
-  // Rows already in the viewport must not wait for a scroll event.
-  els.forEach((el) => {
-    const r = el.getBoundingClientRect();
-    if (r.top < window.innerHeight * 0.9 && r.bottom > 0) {
-      window.gsap.to(el, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out", overwrite: true });
-    }
-  });
 }
 
 // ---------- Filters + listings ----------
@@ -134,14 +158,24 @@ const summaryEl = $("#filter-summary");
 
 function fmtPrice(v) { return v.toFixed(2).replace(/\.00$/, "") + " bn VND"; }
 function miniCut(l) {
+  // Building silhouette: outlined mass + hairline floors + highlighted band.
+  const top = 10, bottom = 100, span = bottom - top;
   const hi = l.floor ? Math.min(18, Math.max(1, l.floor)) : null;
-  let bars = "";
-  for (let f = 18; f >= 1; f--) {
-    const y = (18 - f) * 6 + 4;
-    const fill = f === hi ? "#6d2d37" : "#e8e1d5";
-    bars += `<rect x="18" y="${y}" width="54" height="4" fill="${fill}" stroke="#191b1a" stroke-width="0.5"/>`;
+  const hiY = hi !== null ? bottom - ((hi - 0.5) / 18) * span : null;
+  let lines = "";
+  for (let f = 1; f <= 18; f++) {
+    const y = bottom - ((f - 0.5) / 18) * span;
+    lines += `<line x1="24" y1="${y.toFixed(1)}" x2="66" y2="${y.toFixed(1)}" stroke="rgba(25,27,26,.28)" stroke-width="1"/>`;
   }
-  return `<svg class="mini-cut" data-cursor="VIEW" viewBox="0 0 90 120" role="img" aria-label="Vertical cutaway">${bars}<text x="45" y="116" text-anchor="middle" font-size="8">${l.floorLabel}</text></svg>`;
+  const hiRect = hi !== null
+    ? `<rect x="24" y="${(hiY - 2.6).toFixed(1)}" width="42" height="5.2" fill="#6d2d37"/>`
+    : `<rect x="24" y="20" width="42" height="80" fill="none" stroke="#9a7652" stroke-width="1" stroke-dasharray="3 3"/>`;
+  return `<svg class="mini-cut" data-cursor="VIEW" viewBox="0 0 90 120" role="img" aria-label="Building cutaway, ${l.floorLabel}">
+    <rect x="22" y="${top - 4}" width="46" height="${span + 8}" fill="#efe8da" stroke="#191b1a" stroke-width="1"/>
+    <line x1="20" y1="${top - 4}" x2="70" y2="${top - 4}" stroke="#9a7652" stroke-width="3"/>
+    ${lines}${hiRect}
+    <text x="45" y="114" text-anchor="middle" font-size="8" fill="#55524b">${l.floorLabel}</text>
+  </svg>`;
 }
 function renderListings() {
   const items = LISTINGS.filter((l) =>
@@ -247,8 +281,10 @@ stepsEl.innerHTML = PROCESS_STEPS.map((s, i) => `
 function setStep(i) {
   $$(".step", stepsEl).forEach((el, j) => el.classList.toggle("active", j === i));
   const f = PROCESS_STEPS[i].floor;
-  $$("#journey-cut rect[data-floor]").forEach((r) => r.setAttribute("fill", Number(r.dataset.floor) === f ? "#6d2d37" : "#e8e1d5"));
-  if (towerApi) towerApi.setHighlight(Math.min(18, 2 + f * 3));
+  $$("#journey-cut rect[data-floor]").forEach((r) => r.setAttribute("fill", Number(r.dataset.floor) === f ? "#6d2d37" : "rgba(25,27,26,.08)"));
+  // Fly the hero camera to this step's floor and highlight it there too.
+  const hf = Math.min(18, 2 + f * 3);
+  if (towerApi) towerApi.setRide((hf - 1) / 17); else onFloor(hf);
 }
 $$(".step", stepsEl).forEach((el) => {
   el.addEventListener("click", () => setStep(Number(el.dataset.step)));
@@ -259,7 +295,11 @@ setStep(0);
 // ---------- Amenities, testimonials, stats ----------
 $("#amen-list").innerHTML = AMENITIES.map((a) => `<div class="amen-row"><div><strong>${a.code} · ${a.name}</strong><br>${a.level}</div><div>${a.distance}<br>${a.hours}</div></div>`).join("")
   + `<h3>Nearby (illustration)</h3>` + NEARBY.map((n) => `<div class="amen-row"><div>${n.name}</div><div>${n.distance}</div></div>`).join("");
-$("#testi-list").innerHTML = TESTIMONIALS.map((t) => `<article class="testi"><blockquote>“${t.quote}”</blockquote><p><strong>${t.name}</strong><br>${t.detail}</p></article>`).join("");
+$("#testi-list").innerHTML = TESTIMONIALS.map((t) => {
+  const initials = t.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("");
+  return `<article class="testi"><blockquote>“${t.quote}”</blockquote>
+    <p class="who"><span class="avatar" aria-hidden="true">${initials}</span><span><strong>${t.name}</strong><br>${t.detail}</span></p></article>`;
+}).join("");
 $("#stats-list").innerHTML = STATS.map((s) => `<div><b>${s.value} ${s.suffix}</b><p>${s.label}</p></div>`).join("");
 
 // ---------- Booking form: expandable unit cards, first open by default ----------
@@ -357,15 +397,36 @@ function initMotion() {
   // Staggered reveals for rows/cards rendered at load.
   setupBatchReveals();
 
-  if (!desktop) return; // Mobile: batch reveals only, no pin/horizontal/stack/kinetic.
+  // Count-up for the statistics strips (works on mobile and desktop).
+  $$(".stats-strip").forEach((strip) => {
+    const bs = $$("b", strip);
+    if (!bs.length) return;
+    ST.create({
+      trigger: strip, start: "top 85%", once: true,
+      onEnter: () => {
+        bs.forEach((b) => {
+          const m = b.textContent.match(/^([\d.]+)(\s*)(.*)$/);
+          if (!m) return;
+          const target = parseFloat(m[1]);
+          const dec = (m[1].split(".")[1] || "").length;
+          const obj = { v: 0 };
+          gsap.to(obj, {
+            v: target, duration: 1.1, ease: "power2.out",
+            onUpdate: () => { b.textContent = obj.v.toFixed(dec) + m[2] + m[3]; },
+          });
+        });
+      },
+    });
+  });
 
-  // Pinned hero scrub (pin only; floor driven by onUpdate so Pause freezes it).
+  if (!desktop) return; // Mobile: batch reveals + count-up only, no pin/horizontal/stack/kinetic.
+
+  // Pinned hero scrub (pin only; camera ride driven by onUpdate so Pause freezes it).
   ST.create({
     trigger: "#hero", start: "top top", end: "+=120%", pin: true, anticipatePin: 1,
     onUpdate: (self) => {
       if (paused) return;
-      const f = 1 + Math.round(self.progress * 17);
-      if (towerApi) towerApi.setHighlight(f); else onFloor(f);
+      if (towerApi) towerApi.setRide(self.progress); else onFloor(1 + Math.round(self.progress * 17));
     },
   });
 

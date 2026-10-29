@@ -5,13 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>May Song Residence — Real Estate Landing (Demo)</title>
 <meta name="description" content="Fictional real-estate landing page for May Song Residence. Demo only: no data is saved and no real transaction takes place.">
-<link rel="stylesheet" href="styles.css">
-<!-- Tower is raw WebGL (tower.js) with no CDN dependency; only GSAP is CDN-loaded and guarded. -->
+<link rel="stylesheet" href="styles.css?v=12">
+<!-- Tower is raw WebGL (tower.js) with no CDN dependency; only GSAP and the
+     two display fonts are CDN-loaded, and each is guarded by a fallback stack. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,800;1,500&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
 <script>if (window.gsap && window.ScrollTrigger) { window.gsap.registerPlugin(window.ScrollTrigger); }</script>
 </head>
 <body>
+<div class="grain" aria-hidden="true"></div>
 <div class="scaffold" aria-hidden="true"></div>
 <div class="scroll-progress" aria-hidden="true"></div>
 <div id="cursor-pill" aria-hidden="true"><span id="cursor-pill-label">DRAG</span></div>
@@ -36,7 +41,7 @@
         <a class="btn ghost" href="#visit">Book a viewing (demo)</a>
         <button class="pause-btn" type="button" aria-pressed="false">⏸ Pause motion</button>
       </div>
-      <p class="demo">Demo notice: May Song Land, May Song Residence, all prices, addresses and figures on this page are fictional illustration. This form and these listings do not save data and do not create a real transaction.</p>
+      <p class="demo">Demo: every price, address and figure on this page is fictional illustration. Nothing is saved and no real transaction takes place.</p>
     </div>
     <div class="hero-stage" data-reveal>
       <canvas id="tower-canvas" aria-label="Interactive 3D tower — drag to rotate"></canvas>
@@ -50,7 +55,7 @@
       </div>
       <div class="floor-counter" aria-live="polite"><span>Floor</span><b id="floor-number">12</b><span id="floor-label">Sample unit floor</span></div>
       <div class="loader" id="tower-loader">Loading tower…</div>
-      <p style="padding:0 14px 10px"><small>FIG. 01 — WEBGL TOWER — OPTION B + WEBGL — v1.1 — 2026-10-26 · Drag to rotate · Scroll to highlight floors from bottom to top.</small></p>
+      <p style="padding:0 14px 10px"><small>FIG. 01 — WEBGL TOWER — v1.2 — 2026-10-30 · Drag to rotate · Scroll to ride up the tower.</small></p>
     </div>
   </section>
 
@@ -154,9 +159,67 @@
     <h2>Everything you need, <em>without leaving the complex.</em></h2>
     <p class="word-reveal">Distances are measured from the main lobby, in minutes on foot.</p>
     <div class="amen-grid"><div id="amen-list"></div>
-      <div class="panel"><h3>Along the vertical axis</h3>
+      <div class="panel">
+        <h3>Along the vertical axis</h3>
         <p>Ground: pool, park, kindergarten, supermarket.<br>Floor 2: gym &amp; yoga.<br>Floors 3–18: homes, with the sample unit on Floor 12.</p>
-        <p>Gallery (illustration, no real project photos): daytime facade, welcome lobby, 2BR sample unit 68 m2, kitchen + Southeast balcony, ground-floor pool, inner park in the afternoon.</p>
+        <h3>Gallery (illustration)</h3>
+        <div class="gallery">
+          <figure>
+            <svg viewBox="0 0 120 90" aria-hidden="true"><g fill="none" stroke="#9a7652" stroke-width="2" stroke-linecap="round">
+              <rect x="32" y="14" width="56" height="62"/>
+              <line x1="32" y1="26" x2="88" y2="26"/><line x1="32" y1="38" x2="88" y2="38"/><line x1="32" y1="50" x2="88" y2="50"/><line x1="32" y1="62" x2="88" y2="62"/>
+              <line x1="50" y1="14" x2="50" y2="76"/><line x1="70" y1="14" x2="70" y2="76"/>
+              <line x1="18" y1="76" x2="104" y2="76"/>
+            </g><circle cx="103" cy="16" r="6" fill="#6d2d37"/></svg>
+            <figcaption>Daytime facade</figcaption>
+          </figure>
+          <figure>
+            <svg viewBox="0 0 120 90" aria-hidden="true"><g fill="none" stroke="#9a7652" stroke-width="2" stroke-linecap="round">
+              <path d="M40 76 V46 a20 20 0 0 1 40 0 V76"/>
+              <line x1="26" y1="76" x2="94" y2="76"/>
+              <line x1="60" y1="14" x2="60" y2="24"/>
+              <line x1="34" y1="76" x2="34" y2="64"/><line x1="86" y1="76" x2="86" y2="64"/>
+            </g><circle cx="60" cy="30" r="4.5" fill="#6d2d37"/></svg>
+            <figcaption>Welcome lobby</figcaption>
+          </figure>
+          <figure>
+            <svg viewBox="0 0 120 90" aria-hidden="true"><g fill="none" stroke="#9a7652" stroke-width="2" stroke-linecap="round">
+              <rect x="22" y="14" width="44" height="28"/>
+              <line x1="44" y1="14" x2="44" y2="42"/><line x1="22" y1="28" x2="66" y2="28"/>
+              <rect x="18" y="56" width="52" height="16" rx="3"/>
+              <line x1="18" y1="56" x2="18" y2="72"/><line x1="70" y1="56" x2="70" y2="72"/>
+              <path d="M88 72 c0-12 5-18 12-20"/>
+            </g><circle cx="100" cy="48" r="6" fill="#6d2d37"/></svg>
+            <figcaption>2BR sample unit · 68 m2</figcaption>
+          </figure>
+          <figure>
+            <svg viewBox="0 0 120 90" aria-hidden="true"><g fill="none" stroke="#9a7652" stroke-width="2" stroke-linecap="round">
+              <rect x="22" y="52" width="76" height="9"/>
+              <line x1="30" y1="61" x2="30" y2="74"/><line x1="90" y1="61" x2="90" y2="74"/>
+              <path d="M36 22 h28 v10 a14 10 0 0 1 -28 0 z"/>
+              <line x1="50" y1="40" x2="50" y2="52"/>
+              <line x1="80" y1="14" x2="80" y2="24"/>
+            </g><circle cx="80" cy="28" r="4" fill="#6d2d37"/></svg>
+            <figcaption>Kitchen + Southeast balcony</figcaption>
+          </figure>
+          <figure>
+            <svg viewBox="0 0 120 90" aria-hidden="true"><g fill="none" stroke="#9a7652" stroke-width="2" stroke-linecap="round">
+              <path d="M12 62 q9 -6 18 0 t18 0 t18 0 t18 0 t18 0"/>
+              <path d="M12 72 q9 -6 18 0 t18 0 t18 0 t18 0 t18 0"/>
+              <path d="M86 30 v26 M94 30 v26"/>
+              <line x1="86" y1="38" x2="94" y2="38"/><line x1="86" y1="47" x2="94" y2="47"/>
+            </g><circle cx="28" cy="24" r="8" fill="#6d2d37"/></svg>
+            <figcaption>Ground-floor pool</figcaption>
+          </figure>
+          <figure>
+            <svg viewBox="0 0 120 90" aria-hidden="true"><g fill="none" stroke="#9a7652" stroke-width="2" stroke-linecap="round">
+              <circle cx="34" cy="32" r="12"/><line x1="34" y1="44" x2="34" y2="68"/>
+              <circle cx="64" cy="26" r="9"/><line x1="64" y1="35" x2="64" y2="68"/>
+              <line x1="12" y1="74" x2="108" y2="74"/>
+            </g><rect x="80" y="56" width="26" height="5" fill="#6d2d37"/></svg>
+            <figcaption>Inner park, afternoon</figcaption>
+          </figure>
+        </div>
       </div>
     </div>
   </section>
@@ -169,10 +232,9 @@
     <div class="tower-stats">
       <svg viewBox="0 0 200 420" role="img" aria-label="Tower cutaway for statistics"><g id="stats-cut"></g></svg>
       <div><div class="stats-strip" style="margin:0"><div><b>248</b><p>units handed over (fictional)</p></div><div><b>87%</b><p>occupancy (fictional)</p></div><div><b>27.4 m VND/m2</b><p>lowest listed (fictional)</p></div><div><b>12 days</b><p>average viewing to signing (fictional)</p></div></div>
-      <p class="demo">Statistics are fictional illustration, updated 10/2026 (fictional). They are not business results.</p></div>
+      <p class="demo">Statistics and testimonials are fictional illustration, updated 10/2026 (fictional). They are not business results, and May Song Land is a fictional brand.</p></div>
     </div>
     <div class="testis" id="testi-list"></div>
-    <p class="demo">All testimonials above are fictional illustration. May Song Land is a fictional brand.</p>
   </section>
 </main>
 
@@ -215,7 +277,7 @@
   <nav class="foot-links" aria-label="Footer">
     <a class="roll" href="#listings"><span>Listings</span><span aria-hidden="true">Listings</span></a><a class="roll" href="#journey"><span>Buying journey</span><span aria-hidden="true">Buying journey</span></a><a class="roll" href="#amenities"><span>Amenities</span><span aria-hidden="true">Amenities</span></a><a class="roll" href="#visit"><span>Book a viewing</span><span aria-hidden="true">Book a viewing</span></a>
   </nav>
-  <span class="version">REAL ESTATE — OPTION B + WEBGL — v1.1 — 2026-10-26</span>
+  <span class="version">REAL ESTATE — OPTION B + WEBGL — v1.2 — 2026-10-30</span>
   <p class="demo">This is a landing-page illustration, not a real exchange. Brand, projects, prices, addresses and figures are fictional. No data is saved, no payment is taken.</p>
 </div></footer>
 
@@ -231,15 +293,18 @@
 
 <script>
 // Build the static SVG cutaways (fallback, journey, stats) without extra files.
+// Silhouette style: outlined mass, hairline floor lines, highlighted floor band.
 (function(){
-  function floors(el, hi){
+  function tower(el, hi, x, w){
     if(!el) return;
-    let s = '<rect x="60" y="8" width="80" height="12" fill="#9a7652"/>';
-    for(let f=18; f>=1; f--){
-      const y = 26 + (18-f)*22;
-      s += `<rect data-floor="${f}" x="60" y="${y}" width="80" height="16" fill="${f===hi?'#6d2d37':'#e8e1d5'}" stroke="#191b1a" stroke-width="0.6"/><text x="146" y="${y+12}" font-size="9">${f}</text>`;
+    const top = 12, bottom = 400, span = bottom - top;
+    let s = `<line x1="${x-4}" y1="${top-6}" x2="${x+w+4}" y2="${top-6}" stroke="#9a7652" stroke-width="5"/>`;
+    s += `<rect x="${x}" y="${top-6}" width="${w}" height="${span+6}" fill="#efe8da" stroke="#191b1a" stroke-width="1"/>`;
+    for(let f=1; f<=18; f++){
+      const y = bottom - ((f-0.5)/18)*span;
+      s += `<rect data-floor="${f}" x="${x+2}" y="${(y-2.4).toFixed(1)}" width="${w-4}" height="4.8" fill="${f===hi?'#6d2d37':'rgba(25,27,26,.08)'}"/>`;
     }
-    s += '<rect x="50" y="422" width="100" height="0" fill="none"/>';
+    s += `<rect x="${x-5}" y="${bottom}" width="${w+10}" height="10" fill="#55524b"/>`;
     el.innerHTML = s;
   }
   // Fallback tower uses its own compact stack.
@@ -252,10 +317,10 @@
     }
     fb.innerHTML = s;
   }
-  floors(document.getElementById('journey-cut'), 1);
-  floors(document.getElementById('stats-cut'), 12);
+  tower(document.getElementById('journey-cut'), 5, 62, 76);
+  tower(document.getElementById('stats-cut'), 12, 62, 76);
 })();
 </script>
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=12"></script>
 </body>
 </html>
